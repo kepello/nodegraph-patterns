@@ -1,6 +1,6 @@
 {
   "name": "@kepello/nodegraph-patterns",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Design + architectural pattern detection for @kepello/nodegraph: constraint-relaxation matching over typed L1/L3/L4 facts. Sixth layer of the Layered Code Abstraction arc.",
   "type": "module",
   "main": "dist/index.js",

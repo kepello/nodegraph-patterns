@@ -2,6 +2,23 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-05-15
+
+Closes Fathom row `l6-role-edge-collapse` (3.3.3). `PatternOverlayImpl.insertPattern` now collapses role bindings that target the same elementId before emitting role edges — the substrate's edge identity is `(source, target, type)` (subtype is NOT part of the uniqueness key), so prior versions tripped `edges_live_unique_dangling` on patterns like Hexagonal Architecture where one cluster fills both `port` and `adapter` roles.
+
+### Changed
+
+- `insertPattern` deduplicates roles by `(target)` at insert time. First role wins on the edge surface. The pattern node's `metadata.roles` array still carries every role entry — consumers reading the full binding via `getPattern(id).metadata.roles` see all roles; consumers reading via `rolesOf(id)` (edge surface) see one edge per target.
+- Pre-`0.3.0` dedup logic keyed `existingPairs` by `(subtype, target)`, which allowed same-target different-subtype to pass through and then collide at substrate insert time. The new logic keys by `(target)` only — matching the substrate's actual uniqueness constraint.
+
+### Fixed
+
+- Surfaced 2026-05-15 by the first end-to-end `fathom analyze` run after `fathom-analyze-runs-phase-3` (3.3.2) shipped. The Hexagonal Architecture matcher emits both `port` and `adapter` roles targeting the same cluster when port-flavor and adapter-flavor names overlap — every Hexagonal detection tripped the UNIQUE constraint and surfaced as a warning in the analyze output. Post-fix, Hexagonal patterns persist cleanly with collapsed role edges.
+
+### Tests
+
+- 40/40 pass (was 39; +1 regression test in `overlay.test.ts` pinning the collapse behavior + verifying metadata.roles preserves the full binding list).
+
 ## [0.2.0] — 2026-05-15
 
 Closes Fathom row `l6-hexagonal-role-display` (3.2.5) — first Tier-1 Phase 3 fix shipped from the 2026-05-14 smoke output. Pattern roles now carry human-readable labels so consumers (MCP output, inspect viewer, audit reports) can render role bindings without dereferencing the role target.

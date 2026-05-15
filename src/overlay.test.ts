@@ -150,3 +150,37 @@ test("rolesOf — empty list for unknown pattern", () => {
   const overlay = makePatternOverlay(graph);
   assert.deepEqual(overlay.rolesOf("missing"), []);
 });
+
+// Fathom row 3.3.3 — l6-role-edge-collapse
+test("insertPattern — collapses roles targeting the same element to one edge (3.3.3 regression)", () => {
+  const graph = makeGraph();
+  const overlay = makePatternOverlay(graph);
+  // Hexagonal Architecture shape: a cluster fills both `port` and
+  // `adapter` roles. Substrate edge identity is `(source, target,
+  // type)`, so two role edges to the same target trip the UNIQUE
+  // constraint pre-fix; post-fix only the first role wins on the
+  // edge surface (metadata.roles still carries both).
+  overlay.insertPattern({
+    patternId: "hex1",
+    patternName: "Hexagonal Architecture",
+    patternFamily: "architectural",
+    confidenceScore: 0.7,
+    contentHash: "h",
+    roles: [
+      { role: "domainCore", elementId: "cluster-A", displayLabel: "user-core" },
+      { role: "port",       elementId: "cluster-B", displayLabel: "user-port" },
+      { role: "adapter",    elementId: "cluster-B", displayLabel: "user-port" },
+    ],
+  });
+  const edges = overlay.rolesOf("hex1");
+  // Two distinct targets — three role entries collapsed to two edges.
+  assert.equal(edges.length, 2);
+  const subtypes = edges.map((e) => e.subtype).sort();
+  // First role wins on collision: `port` keeps the cluster-B edge,
+  // `adapter` is dropped on the edge surface.
+  assert.deepEqual(subtypes, ["domainCore", "port"]);
+  // Pattern node's metadata.roles preserves all three bindings.
+  const node = overlay.getPattern("hex1");
+  assert.ok(node);
+  assert.equal(node.metadata.roles.length, 3);
+});

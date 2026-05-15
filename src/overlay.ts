@@ -71,21 +71,28 @@ export class PatternOverlayImpl implements PatternOverlay {
       });
     }
 
-    // Write role edges (one per filled role). Edge `subtype` carries
-    // the role name so consumers can recover the binding from the edge
-    // metadata alone (cheap reads). Deduplicate against existing.
+    // Write role edges (one per filled role-target). Edge `subtype`
+    // carries the role name so consumers can recover the binding from
+    // the edge metadata alone. The substrate's edge identity is
+    // `(source, target, type)` — subtype is NOT part of the uniqueness
+    // key. When `input.roles` contains two entries targeting the same
+    // elementId (e.g., a Hexagonal Architecture cluster filling both
+    // `port` and `adapter`), only the first role gets an edge. The
+    // pattern's `metadata.roles` array still carries every role entry
+    // (consumers reading via the pattern node see all bindings); only
+    // the role-edge surface collapses by `(target)`. Fathom row
+    // `l6-role-edge-collapse` (3.3.3).
     const existingRole = this.graph.edgesFrom(node.id, {
       type: ROLE_EDGE_TYPE,
       includeDangling: true,
     });
-    const existingPairs = new Set<string>();
+    const writtenTargets = new Set<string>();
     for (const e of existingRole) {
-      const tgt = e.targetId ?? e.targetRef ?? "";
-      existingPairs.add(`${e.subtype ?? ""}::${tgt}`);
+      writtenTargets.add(e.targetId ?? e.targetRef ?? "");
     }
     for (const role of input.roles) {
-      const key = `${role.role}::${role.elementId}`;
-      if (existingPairs.has(key)) continue;
+      if (writtenTargets.has(role.elementId)) continue;
+      writtenTargets.add(role.elementId);
       const byId = this.graph.getNodeById(role.elementId);
       if (byId !== undefined) {
         this.graph.insertEdge({
