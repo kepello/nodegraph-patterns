@@ -37,8 +37,8 @@ test("insertPattern — persists metadata + role edges with subtype", () => {
     confidenceScore: 0.9,
     contentHash: "ch1",
     roles: [
-      { role: "singleton", elementId: "Logger" },
-      { role: "accessor", elementId: "Logger.getInstance" },
+      { role: "singleton", elementId: "Logger", displayLabel: "Logger" },
+      { role: "accessor", elementId: "Logger.getInstance", displayLabel: "getInstance" },
     ],
   });
   assert.equal(node.metadata.kind, PATTERN_METADATA_KIND);
@@ -60,7 +60,7 @@ test("insertPattern — idempotent on identical content-hash", () => {
     patternFamily: "gof",
     confidenceScore: 0.7,
     contentHash: "h",
-    roles: [{ role: "adapter", elementId: "x" }],
+    roles: [{ role: "adapter", elementId: "x", displayLabel: "x" }],
   });
   const b = overlay.insertPattern({
     patternId: "p",
@@ -68,7 +68,7 @@ test("insertPattern — idempotent on identical content-hash", () => {
     patternFamily: "gof",
     confidenceScore: 0.7,
     contentHash: "h",
-    roles: [{ role: "adapter", elementId: "x" }],
+    roles: [{ role: "adapter", elementId: "x", displayLabel: "x" }],
   });
   assert.equal(a.id, b.id);
   assert.equal(overlay.rolesOf("p").length, 1);
@@ -83,7 +83,7 @@ test("tombstonePattern — removes from listPatterns", () => {
     patternFamily: "anti-pattern",
     confidenceScore: 0.85,
     contentHash: "h",
-    roles: [{ role: "godClass", elementId: "Big" }],
+    roles: [{ role: "godClass", elementId: "Big", displayLabel: "Big" }],
   });
   assert.equal(overlay.listPatterns().length, 1);
   overlay.tombstonePattern("doomed");
@@ -99,7 +99,7 @@ test("patternsByName — filters by pattern name", () => {
     patternFamily: "gof",
     confidenceScore: 0.8,
     contentHash: "h1",
-    roles: [{ role: "singleton", elementId: "A" }],
+    roles: [{ role: "singleton", elementId: "A", displayLabel: "A" }],
   });
   overlay.insertPattern({
     patternId: "b",
@@ -107,7 +107,7 @@ test("patternsByName — filters by pattern name", () => {
     patternFamily: "gof",
     confidenceScore: 0.7,
     contentHash: "h2",
-    roles: [{ role: "singleton", elementId: "B" }],
+    roles: [{ role: "singleton", elementId: "B", displayLabel: "B" }],
   });
   overlay.insertPattern({
     patternId: "c",
@@ -115,7 +115,7 @@ test("patternsByName — filters by pattern name", () => {
     patternFamily: "gof",
     confidenceScore: 0.6,
     contentHash: "h3",
-    roles: [{ role: "adapter", elementId: "C" }],
+    roles: [{ role: "adapter", elementId: "C", displayLabel: "C" }],
   });
   assert.equal(overlay.patternsByName("Singleton").length, 2);
   assert.equal(overlay.patternsByName("Adapter").length, 1);
@@ -132,8 +132,8 @@ test("patternsForElement — finds patterns whose roles reference the element", 
     confidenceScore: 0.7,
     contentHash: "h1",
     roles: [
-      { role: "subject", elementId: "Publisher" },
-      { role: "observerCollection", elementId: "Publisher.listeners" },
+      { role: "subject", elementId: "Publisher", displayLabel: "Publisher" },
+      { role: "observerCollection", elementId: "Publisher.listeners", displayLabel: "listeners" },
     ],
   });
   const patterns = overlay.patternsForElement("Publisher");

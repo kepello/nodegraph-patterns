@@ -2,6 +2,23 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] — 2026-05-15
+
+Closes Fathom row `l6-hexagonal-role-display` (3.2.5) — first Tier-1 Phase 3 fix shipped from the 2026-05-14 smoke output. Pattern roles now carry human-readable labels so consumers (MCP output, inspect viewer, audit reports) can render role bindings without dereferencing the role target.
+
+### Changed (breaking)
+
+- `PatternInstanceRole` adds required `displayLabel: string`. Every matcher populates it: element-targeted roles use the element's `name`; cluster-targeted roles (`matchHexagonal` `domainCore`/`port`/`adapter` + `matchLayered` `layer`) use `cluster.displayName ?? cluster.name`. Pre-`0.2.0` callers constructing `PatternInstance`s directly must add the field; consumers reading persisted `PatternMetadata.roles` see the new field on every freshly-detected node. Existing graph nodes from `0.1.x` runs lack `displayLabel` — Fathom is pre-prod, accepted operator workflow is to delete + rebuild `.fathom/graph.db`.
+
+### Added
+
+- `matchers.test.ts` regression test pinning hexagonal role `displayLabel`s to cluster names (cluster `displayName` wins over `name`).
+- Same coverage for `matchSingleton` confirming element-side labels resolve through `name`, not `id`.
+
+### Rationale
+
+Phase 3 smoke output against the Fathom workspace 2026-05-14 surfaced opaque hash-shaped `clusterId`s in hexagonal role lists. The fix is structural: the role binding carries enough information to format itself, so the MCP wrapper (`phase-3-mcp-surface`, 3.3.1) can render role lists without a second graph round-trip.
+
 ## [0.1.0] — 2026-05-14
 
 Initial publish. Sixth layer of the workspace Layered Code Abstraction arc (Fathom work row `l6-pattern-overlay` 3.1.6, per `docs/code_abstraction.md` L6).

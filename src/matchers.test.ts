@@ -330,6 +330,47 @@ test("matchHexagonal — doesn't fire without domain-flavor cluster", () => {
   assert.equal(matchHexagonal(ctx).length, 0);
 });
 
+// Regression pin for Fathom row `l6-hexagonal-role-display` (3.2.5):
+// hexagonal roles must carry human-readable `displayLabel`s — not the
+// opaque clusterId hashes that drove the Phase 3 smoke output to render
+// roles as unreadable strings. Cluster `displayName` wins over `name`
+// when both are present.
+test("matchHexagonal — roles carry cluster displayName / name as displayLabel", () => {
+  const ctx = buildContext({
+    clusters: [
+      { clusterId: "abc123", name: "user-domain", displayName: "User Domain", memberCount: 5 },
+      { clusterId: "def456", name: "user-port", memberCount: 3 },
+      { clusterId: "ghi789", name: "user-adapter", memberCount: 4 },
+    ],
+  });
+  const out = matchHexagonal(ctx);
+  assert.equal(out.length, 1);
+  const labelsByRole = new Map(out[0].roles.map((r) => [r.role + ":" + r.elementId, r.displayLabel]));
+  assert.equal(labelsByRole.get("domainCore:abc123"), "User Domain");
+  assert.equal(labelsByRole.get("port:def456"), "user-port");
+  assert.equal(labelsByRole.get("adapter:ghi789"), "user-adapter");
+});
+
+// Same coverage on the element side — singleton roles should carry the
+// element's `name`, not the opaque id (which often IS the name in
+// fixtures, but won't be in real-world graphs where ids are hashed
+// natural-keys).
+test("matchSingleton — roles carry element name as displayLabel", () => {
+  const ctx = buildContext({
+    elements: [
+      { id: "hash-A", name: "Logger", kind: "class" },
+      { id: "hash-B", name: "getInstance", kind: "method" },
+      { id: "hash-C", name: "instance", kind: "field" },
+    ],
+    childrenOf: new Map([["hash-A", ["hash-B", "hash-C"]]]),
+  });
+  const out = matchSingleton(ctx);
+  assert.equal(out.length, 1);
+  const labelsByRole = new Map(out[0].roles.map((r) => [r.role + ":" + r.elementId, r.displayLabel]));
+  assert.equal(labelsByRole.get("singleton:hash-A"), "Logger");
+  assert.equal(labelsByRole.get("accessor:hash-B"), "getInstance");
+});
+
 // --- matchGodClass --------------------------------------------------------
 
 test("matchGodClass — fires on class with L1 classStereotype 'large-class'", () => {

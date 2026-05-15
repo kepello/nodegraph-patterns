@@ -11,11 +11,16 @@ export type PatternFamily = "gof" | "architectural" | "anti-pattern";
  * One filled role in a pattern instance. `role` is pattern-specific
  * (`"subject"`, `"observer"`, `"product"`, `"adapter"`, etc.) — used
  * as the edge subtype on outgoing `role` edges so consumers can
- * recover the role binding from edge metadata alone.
+ * recover the role binding from edge metadata alone. `displayLabel`
+ * carries the role-filler's human-readable name (element `name` for
+ * element bindings; cluster `displayName ?? name` for cluster
+ * bindings) so consumers don't have to dereference the target node
+ * to format role lists.
  */
 export interface PatternInstanceRole {
   role: string;
   elementId: string;
+  displayLabel: string;
 }
 
 /**

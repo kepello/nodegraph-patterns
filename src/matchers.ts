@@ -57,6 +57,14 @@ function fieldChildrenOfClass(
     .filter((e): e is PatternElement => e !== undefined && FIELD_KINDS.has(e.kind));
 }
 
+function elementLabel(ctx: PatternContext, id: string): string {
+  return ctx.elements.find((e) => e.id === id)?.name ?? id;
+}
+
+function clusterLabel(c: { name: string; displayName?: string }): string {
+  return c.displayName ?? c.name;
+}
+
 function buildInstance(
   patternName: string,
   patternFamily: PatternFamily,
@@ -109,8 +117,8 @@ export function matchSingleton(ctx: PatternContext): PatternInstance[] {
     if (classStereo === "minor-class" || classStereo === "lazy-class") score += 0.1;
     if (methods.length <= 3) score += 0.1;
     const roles: PatternInstanceRole[] = [
-      { role: "singleton", elementId: cls.id },
-      ...singletonMethods.map((m) => ({ role: "accessor", elementId: m.id })),
+      { role: "singleton", elementId: cls.id, displayLabel: cls.name },
+      ...singletonMethods.map((m) => ({ role: "accessor", elementId: m.id, displayLabel: m.name })),
     ];
     out.push(buildInstance("Singleton", "gof", score, roles, cls.language));
   }
@@ -137,8 +145,8 @@ export function matchFactoryMethod(ctx: PatternContext): PatternInstance[] {
       // Class-level signal: if the class itself names a factory.
       if (/factory$/i.test(cls.name)) score += 0.2;
       const roles: PatternInstanceRole[] = [
-        { role: "creator", elementId: cls.id },
-        { role: "factoryMethod", elementId: m.id },
+        { role: "creator", elementId: cls.id, displayLabel: cls.name },
+        { role: "factoryMethod", elementId: m.id, displayLabel: m.name },
       ];
       out.push(buildInstance("Factory Method", "gof", score, roles, cls.language));
     }
@@ -172,9 +180,9 @@ export function matchAdapter(ctx: PatternContext): PatternInstance[] {
     if (referenced.size >= 1) score += 0.2;
     if (inherits.length === 1 && referenced.size === 1) score += 0.2; // clean adapter shape
     const roles: PatternInstanceRole[] = [
-      { role: "adapter", elementId: cls.id },
-      ...inherits.map((id) => ({ role: "target", elementId: id })),
-      ...[...referenced].slice(0, 3).map((id) => ({ role: "adaptee", elementId: id })),
+      { role: "adapter", elementId: cls.id, displayLabel: cls.name },
+      ...inherits.map((id) => ({ role: "target", elementId: id, displayLabel: elementLabel(ctx, id) })),
+      ...[...referenced].slice(0, 3).map((id) => ({ role: "adaptee", elementId: id, displayLabel: elementLabel(ctx, id) })),
     ];
     out.push(buildInstance("Adapter", "gof", score, roles, cls.language));
   }
@@ -208,8 +216,8 @@ export function matchDecorator(ctx: PatternContext): PatternInstance[] {
     if (referencesInheritedTarget) score += 0.3;
     if (inherits.length === 1) score += 0.1;
     const roles: PatternInstanceRole[] = [
-      { role: "decorator", elementId: cls.id },
-      ...inherits.map((id) => ({ role: "component", elementId: id })),
+      { role: "decorator", elementId: cls.id, displayLabel: cls.name },
+      ...inherits.map((id) => ({ role: "component", elementId: id, displayLabel: elementLabel(ctx, id) })),
     ];
     out.push(buildInstance("Decorator", "gof", score, roles, cls.language));
   }
@@ -239,9 +247,9 @@ export function matchObserver(ctx: PatternContext): PatternInstance[] {
     if (notifyMethods.length >= 1) score += 0.2;
     if (collectionFields.length >= 1 && notifyMethods.length >= 1) score += 0.1;
     const roles: PatternInstanceRole[] = [
-      { role: "subject", elementId: cls.id },
-      ...collectionFields.map((f) => ({ role: "observerCollection", elementId: f.id })),
-      ...notifyMethods.map((m) => ({ role: "notifyMethod", elementId: m.id })),
+      { role: "subject", elementId: cls.id, displayLabel: cls.name },
+      ...collectionFields.map((f) => ({ role: "observerCollection", elementId: f.id, displayLabel: f.name })),
+      ...notifyMethods.map((m) => ({ role: "notifyMethod", elementId: m.id, displayLabel: m.name })),
     ];
     out.push(buildInstance("Observer", "gof", score, roles, cls.language));
   }
@@ -267,8 +275,8 @@ export function matchCommand(ctx: PatternContext): PatternInstance[] {
     if (stereotypeMatch) score += 0.4;
     if (/command$/i.test(cls.name)) score += 0.2;
     const roles: PatternInstanceRole[] = [
-      { role: "command", elementId: cls.id },
-      ...executeMethods.map((m) => ({ role: "executeMethod", elementId: m.id })),
+      { role: "command", elementId: cls.id, displayLabel: cls.name },
+      ...executeMethods.map((m) => ({ role: "executeMethod", elementId: m.id, displayLabel: m.name })),
     ];
     out.push(buildInstance("Command", "gof", score, roles, cls.language));
   }
@@ -312,6 +320,7 @@ export function matchLayered(ctx: PatternContext): PatternInstance[] {
   const roles: PatternInstanceRole[] = ctx.clusters.map((c) => ({
     role: "layer",
     elementId: c.clusterId,
+    displayLabel: clusterLabel(c),
   }));
   return [buildInstance("Layered Architecture", "architectural", confidence, roles)];
 }
@@ -338,9 +347,9 @@ export function matchHexagonal(ctx: PatternContext): PatternInstance[] {
     if (adapterClusters.length > 0) score += 0.3;
     if (portClusters.length > 0 && adapterClusters.length > 0) score += 0.1;
     const roles: PatternInstanceRole[] = [
-      { role: "domainCore", elementId: domain.clusterId },
-      ...portClusters.map((c) => ({ role: "port", elementId: c.clusterId })),
-      ...adapterClusters.map((c) => ({ role: "adapter", elementId: c.clusterId })),
+      { role: "domainCore", elementId: domain.clusterId, displayLabel: clusterLabel(domain) },
+      ...portClusters.map((c) => ({ role: "port", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
+      ...adapterClusters.map((c) => ({ role: "adapter", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
     ];
     out.push(buildInstance("Hexagonal Architecture", "architectural", score, roles));
   }
@@ -369,7 +378,7 @@ export function matchGodClass(ctx: PatternContext): PatternInstance[] {
         "god-class",
         "anti-pattern",
         score,
-        [{ role: "godClass", elementId: cls.id }],
+        [{ role: "godClass", elementId: cls.id, displayLabel: cls.name }],
         cls.language,
       ),
     );
