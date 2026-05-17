@@ -328,8 +328,18 @@ export function matchLayered(ctx: PatternContext): PatternInstance[] {
 /**
  * Hexagonal Architecture — workspace-level. Detects clusters with
  * `Port`-/`Gateway`-flavor names + clusters with `Adapter`-flavor
- * names + a `Domain`-/`Core`-/`Model`-flavor cluster. Returns one
- * instance per domain-core cluster surrounded by ports + adapters.
+ * names + `Domain`-/`Core`-/`Model`-flavor cluster(s). Returns a
+ * SINGLE instance per workspace whose `domainCore`/`port`/`adapter`
+ * roles aggregate the matching clusters. Closes Fathom row 5.1.4.1
+ * (sub-finding F4): previously emitted one instance per domain
+ * cluster, with each instance carrying ALL ports + ALL adapters,
+ * producing a Cartesian-product blowup (10+ near-duplicate instances
+ * on the Fathom workspace, only `domainCore` varying).
+ *
+ * "Hexagonal Architecture" is by definition a workspace-level shape
+ * — there can be multiple domain cores in a multi-bounded-context
+ * system, but they're not separate architectural patterns; they're
+ * domain faces of the same hexagonal arrangement of ports + adapters.
  */
 export function matchHexagonal(ctx: PatternContext): PatternInstance[] {
   if (ctx.clusters.length === 0) return [];
@@ -340,20 +350,23 @@ export function matchHexagonal(ctx: PatternContext): PatternInstance[] {
   const domainClusters = ctx.clusters.filter((c) => HEX_DOMAIN_HINT.test(c.name));
   if (domainClusters.length === 0) return [];
   if (portClusters.length === 0 && adapterClusters.length === 0) return [];
-  const out: PatternInstance[] = [];
-  for (const domain of domainClusters) {
-    let score = 0.3;
-    if (portClusters.length > 0) score += 0.3;
-    if (adapterClusters.length > 0) score += 0.3;
-    if (portClusters.length > 0 && adapterClusters.length > 0) score += 0.1;
-    const roles: PatternInstanceRole[] = [
-      { role: "domainCore", elementId: domain.clusterId, displayLabel: clusterLabel(domain) },
-      ...portClusters.map((c) => ({ role: "port", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
-      ...adapterClusters.map((c) => ({ role: "adapter", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
-    ];
-    out.push(buildInstance("Hexagonal Architecture", "architectural", score, roles));
-  }
-  return out;
+
+  // Single instance with multi-element role bindings. Score reflects
+  // how many of the three roles are populated (more roles = stronger
+  // architectural signal); domain-count and port/adapter-count don't
+  // amplify the score on their own (otherwise larger workspaces would
+  // score higher even when the shape is no better).
+  let score = 0.3;
+  if (portClusters.length > 0) score += 0.3;
+  if (adapterClusters.length > 0) score += 0.3;
+  if (portClusters.length > 0 && adapterClusters.length > 0) score += 0.1;
+
+  const roles: PatternInstanceRole[] = [
+    ...domainClusters.map((c) => ({ role: "domainCore", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
+    ...portClusters.map((c) => ({ role: "port", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
+    ...adapterClusters.map((c) => ({ role: "adapter", elementId: c.clusterId, displayLabel: clusterLabel(c) })),
+  ];
+  return [buildInstance("Hexagonal Architecture", "architectural", score, roles)];
 }
 
 /**

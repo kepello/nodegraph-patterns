@@ -2,6 +2,21 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] — 2026-05-17
+
+Fix — `matchHexagonal` collapses to a single workspace-level instance with multi-element roles. Closes Fathom row 5.1.4.1 (F4 sub-finding).
+
+### Fixed
+
+- Previous behavior emitted one Hexagonal Architecture instance per domain-flavor cluster, with each instance carrying ALL detected ports + ALL detected adapters. With N domain clusters this produced N near-duplicate instances — the same port set + adapter set, only `domainCore` varying. On the Fathom workspace the L6 pattern surface returned 10+ such instances and overflowed the MCP response budget (168 kB) on `family=architectural` queries.
+- New behavior: ONE instance per workspace. The `domainCore` role list aggregates every domain-flavor cluster; the `port` role list aggregates every port-flavor cluster; the `adapter` role list aggregates every adapter-flavor cluster. Score reflects which of the three role kinds are populated, not how many clusters in each.
+- "Hexagonal Architecture" is by definition a workspace-level shape — multiple domain cores in a multi-bounded-context system aren't separate architectural patterns; they're domain faces of the same hexagonal arrangement.
+
+### Tests
+
+- New regression test `matchHexagonal — single workspace-level instance when multiple domain clusters share ports/adapters (Fathom 5.1.4.1)`: 3 domain + 2 port + 1 adapter clusters → 1 instance with 3+2+1 role bindings (was 3 instances pre-fix).
+- Existing single-domain tests still pass (the change is purely additive aggregation when N > 1; same behavior at N = 1). 41/41 matcher tests pass.
+
 ## [0.3.0] — 2026-05-15
 
 Closes Fathom row `l6-role-edge-collapse` (3.3.3). `PatternOverlayImpl.insertPattern` now collapses role bindings that target the same elementId before emitting role edges — the substrate's edge identity is `(source, target, type)` (subtype is NOT part of the uniqueness key), so prior versions tripped `edges_live_unique_dangling` on patterns like Hexagonal Architecture where one cluster fills both `port` and `adapter` roles.

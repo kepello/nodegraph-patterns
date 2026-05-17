@@ -320,6 +320,33 @@ test("matchHexagonal — fires when domain core + ports + adapters present", () 
   assert.equal(out[0].patternName, "Hexagonal Architecture");
 });
 
+test("matchHexagonal — single workspace-level instance when multiple domain clusters share ports/adapters (Fathom 5.1.4.1)", () => {
+  // Regression: pre-5.1.4.1, the matcher emitted ONE instance per
+  // domain cluster, each carrying ALL ports + ALL adapters. With
+  // multiple domain-named clusters this produced a Cartesian-product
+  // blowup of near-duplicate instances on the Fathom workspace
+  // (10+ instances, only `domainCore` varying). The fix collapses
+  // to ONE workspace-level instance with multi-element roles.
+  const ctx = buildContext({
+    clusters: [
+      { clusterId: "domain-a", name: "user-domain", memberCount: 5 },
+      { clusterId: "domain-b", name: "order-domain", memberCount: 5 },
+      { clusterId: "domain-c", name: "billing-core", memberCount: 5 },
+      { clusterId: "port1", name: "x-port", memberCount: 1 },
+      { clusterId: "port2", name: "y-port", memberCount: 1 },
+      { clusterId: "adapter1", name: "x-adapter", memberCount: 1 },
+    ],
+  });
+  const out = matchHexagonal(ctx);
+  assert.equal(out.length, 1, "must emit one instance per workspace, not per domain cluster");
+  const domainRoles = out[0].roles.filter((r) => r.role === "domainCore");
+  const portRoles = out[0].roles.filter((r) => r.role === "port");
+  const adapterRoles = out[0].roles.filter((r) => r.role === "adapter");
+  assert.equal(domainRoles.length, 3);
+  assert.equal(portRoles.length, 2);
+  assert.equal(adapterRoles.length, 1);
+});
+
 test("matchHexagonal — doesn't fire without domain-flavor cluster", () => {
   const ctx = buildContext({
     clusters: [
