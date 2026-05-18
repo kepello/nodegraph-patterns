@@ -317,11 +317,28 @@ export function matchLayered(ctx: PatternContext): PatternInstance[] {
   const backRatio = backEdges / totalClusterDeps;
   const layerDepthBonus = Math.min(0.2, (distinctLayers.size - 3) * 0.05);
   const confidence = (1 - backRatio) * 0.7 + 0.1 + layerDepthBonus;
-  const roles: PatternInstanceRole[] = ctx.clusters.map((c) => ({
-    role: "layer",
-    elementId: c.clusterId,
-    displayLabel: clusterLabel(c),
-  }));
+  // Role naming disambiguates by layer number (`layer-0`, `layer-1`, ...)
+  // so a consumer can read the distribution. Clusters without a known
+  // layer assignment are skipped (they're not part of the pattern).
+  const roles: PatternInstanceRole[] = [];
+  for (const c of ctx.clusters) {
+    const layer = ctx.layerByCluster.get(c.clusterId);
+    if (layer === undefined) continue;
+    roles.push({
+      role: `layer-${layer}`,
+      elementId: c.clusterId,
+      displayLabel: clusterLabel(c),
+    });
+  }
+  // Degenerate-emission guard (Fathom row 5.1.4.1.2): the instance is
+  // only meaningful when distinct clusters fill distinct layer roles.
+  // If a degenerate substrate state (e.g., a single cluster repeated
+  // across the role set) collapses the binding cardinality below the
+  // layer count, drop the instance instead of emitting noise.
+  const distinctRoles = new Set(roles.map((r) => r.role));
+  const distinctClusterIds = new Set(roles.map((r) => r.elementId));
+  if (distinctRoles.size < 3) return [];
+  if (distinctClusterIds.size < distinctRoles.size) return [];
   return [buildInstance("Layered Architecture", "architectural", confidence, roles)];
 }
 

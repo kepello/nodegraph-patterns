@@ -2,6 +2,22 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.1] — 2026-05-17
+
+Fix — `matchLayered` role naming disambiguates by layer number and guards against degenerate emissions. Closes Fathom row 5.1.4.1.2 (round-4 Opus pilot F4).
+
+### Fixed
+
+- Previous behavior emitted one role per cluster, all with role name `"layer"` — a Layered Architecture instance with 442 clusters produced 442 role entries with the same role name, and any substrate state that surfaced the same `clusterId` across `ctx.clusters` would collapse all bindings to a single elementId while still emitting an instance.
+- Round-4 Opus pilot F4 surfaced one such degenerate emission on the Fathom workspace: all 40+ `layer` role bindings pointed to a single cluster `d553b7edc0d32005`, inflating the "1 architectural pattern detected" metric to look like coverage exists.
+- New behavior: (a) role name encodes the layer number (`layer-0`, `layer-1`, `layer-2`, ...) so downstream consumers can read the per-layer distribution; (b) clusters without a known layer assignment are skipped; (c) degenerate-emission guard rejects instances where `distinctClusterCount < distinctLayerRoles` — a substrate state that can't fill distinct layers with distinct clusters is not architecturally meaningful.
+
+### Tests
+
+- New test pinning `layer-N` role-name shape with 4 clusters across 3 layers (4 distinct role bindings, 3 distinct layer role names).
+- New test pinning the degenerate-emission guard (3 clusters all reporting the same `clusterId` → no instance emitted).
+- All 43/43 package tests pass.
+
 ## [0.4.0] — 2026-05-17
 
 Fix — `matchHexagonal` collapses to a single workspace-level instance with multi-element roles. Closes Fathom row 5.1.4.1 (F4 sub-finding).

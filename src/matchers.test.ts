@@ -305,6 +305,61 @@ test("matchLayered — doesn't fire with fewer than 3 layers", () => {
   assert.equal(matchLayered(ctx).length, 0);
 });
 
+test("matchLayered — emits one role per cluster with layer-N role name", () => {
+  // Two clusters per layer; roles disambiguate by layer number.
+  const ctx = buildContext({
+    clusters: [
+      { clusterId: "data1", name: "data1", memberCount: 5 },
+      { clusterId: "data2", name: "data2", memberCount: 5 },
+      { clusterId: "domain1", name: "domain1", memberCount: 5 },
+      { clusterId: "controllers1", name: "controllers1", memberCount: 5 },
+    ],
+    layerByCluster: new Map([
+      ["data1", 0],
+      ["data2", 0],
+      ["domain1", 1],
+      ["controllers1", 2],
+    ]),
+    clusterByElement: new Map([
+      ["a", "controllers1"],
+      ["b", "domain1"],
+      ["c", "data1"],
+    ]),
+    callsEdges: [
+      { source: "a", target: "b" },
+      { source: "b", target: "c" },
+    ],
+  });
+  const out = matchLayered(ctx);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].roles.length, 4);
+  const roleNames = new Set(out[0].roles.map((r) => r.role));
+  assert.deepEqual([...roleNames].sort(), ["layer-0", "layer-1", "layer-2"]);
+  const clusterIds = new Set(out[0].roles.map((r) => r.elementId));
+  assert.equal(clusterIds.size, 4);
+});
+
+test("matchLayered — rejects degenerate emission (single cluster across all layer roles)", () => {
+  // Fathom row 5.1.4.1.2: a substrate state where every cluster reports
+  // the same clusterId yields role bindings whose distinct-cluster
+  // cardinality is below the distinct-layer count. The guard should
+  // drop the instance rather than emit a structurally-meaningless one.
+  const ctx = buildContext({
+    clusters: [
+      { clusterId: "only", name: "only", memberCount: 5 },
+      { clusterId: "only", name: "only", memberCount: 5 },
+      { clusterId: "only", name: "only", memberCount: 5 },
+    ],
+    layerByCluster: new Map([["only", 0]]),
+    clusterByElement: new Map([
+      ["a", "only"],
+      ["b", "only"],
+    ]),
+    callsEdges: [{ source: "a", target: "b" }],
+  });
+  assert.equal(matchLayered(ctx).length, 0);
+});
+
 // --- matchHexagonal -------------------------------------------------------
 
 test("matchHexagonal — fires when domain core + ports + adapters present", () => {
