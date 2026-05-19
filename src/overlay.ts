@@ -4,7 +4,7 @@
  * filled role's element.
  */
 
-import type { Edge, GraphLayer, Node } from "@kepello/nodegraph-core";
+import type { Edge, GraphLayer, GraphMutator, Node } from "@kepello/nodegraph-core";
 import {
   PATTERN_DOMAIN,
   PATTERN_INDEXES,
@@ -20,21 +20,15 @@ import {
 } from "./types.js";
 
 export class PatternOverlayImpl implements PatternOverlay {
+  private readonly mutator: GraphMutator<typeof PATTERN_DOMAIN>;
+
   constructor(private readonly graph: GraphLayer) {
-    try {
-      this.graph.registerOverlay({
+    // Per Fathom row 5.0.42: registerOverlay returns the domain-scoped mutator.
+    this.mutator = this.graph.registerOverlay({
         domain: PATTERN_DOMAIN,
         metadataSchema: PATTERN_METADATA_SCHEMA,
         indexes: PATTERN_INDEXES,
       });
-    } catch (err) {
-      if (
-        !(err instanceof Error) ||
-        !err.message.includes("already registered for domain")
-      ) {
-        throw err;
-      }
-    }
   }
 
   insertPattern(input: PatternInput): PatternNode {
@@ -56,7 +50,7 @@ export class PatternOverlayImpl implements PatternOverlay {
     );
     let node: Node;
     if (existing === undefined) {
-      node = this.graph.insertNode({
+      node = this.mutator.insertNode({
         domain: PATTERN_DOMAIN,
         naturalKey: input.patternId,
         contentHash: input.contentHash,
@@ -65,7 +59,7 @@ export class PatternOverlayImpl implements PatternOverlay {
     } else if (existing.contentHash === input.contentHash) {
       node = existing;
     } else {
-      node = this.graph.supersedeNode(existing.id, {
+      node = this.mutator.supersedeNode(existing.id, {
         contentHash: input.contentHash,
         metadata: metadata as unknown,
       });
@@ -95,14 +89,14 @@ export class PatternOverlayImpl implements PatternOverlay {
       writtenTargets.add(role.elementId);
       const byId = this.graph.getNodeById(role.elementId);
       if (byId !== undefined) {
-        this.graph.insertEdge({
+        this.mutator.insertEdge({
           sourceId: node.id,
           targetId: role.elementId,
           type: ROLE_EDGE_TYPE,
           subtype: role.role,
         });
       } else {
-        this.graph.insertEdge({
+        this.mutator.insertEdge({
           sourceId: node.id,
           targetRef: role.elementId,
           type: ROLE_EDGE_TYPE,
@@ -127,7 +121,7 @@ export class PatternOverlayImpl implements PatternOverlay {
           patternId,
         );
         if (existing === undefined) return;
-        this.graph.tombstoneNode(existing.id);
+        this.mutator.tombstoneNode(existing.id);
       },
     );
   }
