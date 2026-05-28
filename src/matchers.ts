@@ -25,22 +25,52 @@ const FIELD_KINDS: ReadonlySet<string> = new Set(["field", "property"]);
 
 // --- helpers --------------------------------------------------------------
 
-function elementsByKind(
-  ctx: PatternContext,
-  predicate: (e: PatternElement) => boolean,
-): PatternElement[] {
-  return ctx.elements.filter(predicate);
+/**
+ * Per-context derived indexes, built once and cached by context
+ * identity (Fathom row 5.0.1.6). Pre-fix the matcher helpers did
+ * linear `ctx.elements.find((e) => e.id === id)` lookups inside
+ * per-class loops, and `classes()` re-`filter`ed the whole element
+ * array once per matcher. On EnvisionWeb (.NET, 85K elements, ~5000
+ * classes) that made L6 the dominant L2-L7 phase at 45.6s (53% of
+ * abstractions). With an `elementById` Map + a once-computed class
+ * list, the per-child lookup is O(1) and the class scan happens once.
+ *
+ * Keyed by the `PatternContext` object — `detectPatterns` passes the
+ * SAME context to every matcher, so the index is built once per
+ * detect run and reused across all matchers + helpers. WeakMap so it
+ * releases when the context is GC'd; no PatternContext type change and
+ * no caller change required.
+ */
+interface ContextIndex {
+  elementById: Map<string, PatternElement>;
+  classList: PatternElement[];
+}
+const contextIndexCache = new WeakMap<PatternContext, ContextIndex>();
+function indexOf(ctx: PatternContext): ContextIndex {
+  let idx = contextIndexCache.get(ctx);
+  if (idx === undefined) {
+    const elementById = new Map<string, PatternElement>();
+    const classList: PatternElement[] = [];
+    for (const e of ctx.elements) {
+      elementById.set(e.id, e);
+      if (CLASS_KINDS.has(e.kind)) classList.push(e);
+    }
+    idx = { elementById, classList };
+    contextIndexCache.set(ctx, idx);
+  }
+  return idx;
 }
 
 function classes(ctx: PatternContext): PatternElement[] {
-  return elementsByKind(ctx, (e) => CLASS_KINDS.has(e.kind));
+  return indexOf(ctx).classList;
 }
 
 function methodNamesOfClass(ctx: PatternContext, classId: string): { id: string; name: string }[] {
   const children = ctx.childrenOf.get(classId) ?? [];
+  const byId = indexOf(ctx).elementById;
   const out: { id: string; name: string }[] = [];
   for (const childId of children) {
-    const child = ctx.elements.find((e) => e.id === childId);
+    const child = byId.get(childId);
     if (child === undefined) continue;
     if (METHOD_KINDS.has(child.kind)) out.push({ id: child.id, name: child.name });
   }
@@ -52,13 +82,14 @@ function fieldChildrenOfClass(
   classId: string,
 ): PatternElement[] {
   const children = ctx.childrenOf.get(classId) ?? [];
+  const byId = indexOf(ctx).elementById;
   return children
-    .map((id) => ctx.elements.find((e) => e.id === id))
+    .map((id) => byId.get(id))
     .filter((e): e is PatternElement => e !== undefined && FIELD_KINDS.has(e.kind));
 }
 
 function elementLabel(ctx: PatternContext, id: string): string {
-  return ctx.elements.find((e) => e.id === id)?.name ?? id;
+  return indexOf(ctx).elementById.get(id)?.name ?? id;
 }
 
 function clusterLabel(c: { name: string; displayName?: string }): string {

@@ -482,3 +482,58 @@ test("matchGodClass — doesn't fire on plain non-large class", () => {
   });
   assert.equal(matchGodClass(ctx).length, 0);
 });
+
+// --- Fathom row 5.0.1.6: per-class helpers use an O(1) element index ------
+//
+// Pre-fix, methodNamesOfClass / fieldChildrenOfClass / elementLabel did
+// a linear `ctx.elements.find((e) => e.id === id)` per child, inside
+// per-class loops — O(classes × members × elements). On EnvisionWeb
+// (85K elements, ~5000 classes) that made L6 the dominant L2-L7 phase
+// at 45.6s. Post-fix the helpers resolve children through a
+// once-built `elementById` Map (the `indexOf(ctx)` cache).
+//
+// Rule 4 pin: spy on the elements array's `.find`. The matcher hot
+// path must NOT call it (the index is built via a for-of iteration, not
+// .find). Pre-fix this count was O(members per matched class).
+
+test("matchSingleton + matchFactoryMethod — per-class lookups use the index, not Array.find (Fathom 5.0.1.6)", () => {
+  const elements: PatternElement[] = [
+    { id: "Logger", name: "Logger", kind: "class" },
+    { id: "Logger.getInstance", name: "getInstance", kind: "method" },
+    { id: "Logger.instance", name: "instance", kind: "field" },
+    { id: "UserFactory", name: "UserFactory", kind: "class" },
+    { id: "UserFactory.create", name: "createUser", kind: "method" },
+  ];
+  // Decoy elements so a linear scan would be measurably wasteful.
+  for (let i = 0; i < 200; i++) {
+    elements.push({ id: `decoy${i}`, name: `decoy${i}`, kind: "function" });
+  }
+
+  let findCalls = 0;
+  const origFind = elements.find.bind(elements);
+  // Count any `.find` invocation on the elements array.
+  (elements as unknown as { find: typeof elements.find }).find = function (...args: Parameters<typeof origFind>) {
+    findCalls++;
+    return origFind(...args);
+  };
+
+  const ctx = buildContext({
+    elements,
+    childrenOf: new Map([
+      ["Logger", ["Logger.getInstance", "Logger.instance"]],
+      ["UserFactory", ["UserFactory.create"]],
+    ]),
+  });
+
+  // Run two matchers that iterate classes() and call the per-class
+  // helpers. Correctness is covered by the dedicated matcher tests
+  // above; here we only assert the lookup discipline.
+  matchSingleton(ctx);
+  matchFactoryMethod(ctx);
+
+  assert.equal(
+    findCalls,
+    0,
+    `matcher hot path must resolve children via the elementById index, not Array.find; got ${findCalls} find calls`,
+  );
+});

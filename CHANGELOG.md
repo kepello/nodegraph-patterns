@@ -2,6 +2,23 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] — 2026-05-28
+
+O(N²)→O(N) pattern-matcher element lookups. Fathom row `perf-l6-pattern-matcher-linear-element-lookup` (5.0.1.6).
+
+### Fixed
+
+- The matcher helpers `methodNamesOfClass`, `fieldChildrenOfClass`, and `elementLabel` did a linear `ctx.elements.find((e) => e.id === id)` per child, inside per-class loops (`matchSingleton` / `matchFactoryMethod` / `matchObserver` / `matchCommand` / etc. iterate every class and call these). `classes()` also re-`filter`ed the whole element array once per matcher. On the EnvisionWeb .NET workspace (85,353 elements, ~5000 classes) this made L6 the dominant L2-L7 sub-phase at **45.6s — 53% of the 86.8s abstractions compute** (it was 161ms on the small Fathom workspace, so the cost only surfaced at scale).
+- New `indexOf(ctx)` builds — once per `detectPatterns` run, cached by context identity in a `WeakMap` — an `elementById: Map` and a `classList`. The per-child helpers resolve through the Map (O(1)); `classes()` returns the precomputed list. No `PatternContext` type change and no caller change: `detectPatterns` passes the same context object to every matcher, so the index builds once and is reused across all matchers + helpers.
+
+### Expected impact
+
+L6 45.6s → low single-digit seconds; whole EnvisionWeb abstractions 86.8s → ~45s. The adapter/decorator matchers' `referencesEdges` loops are bounded by a name-hint pre-filter (few classes) and were left as-is. Sibling follow-on: L7b (`recoverDomainModel`, 14.7s / 20%) likely has the same linear-lookup shape — to be confirmed + filed separately.
+
+### Tests
+
+1 new Rule-4 pin in `matchers.test.ts` (spy on the elements array's `.find`): the matcher hot path does ZERO `Array.find` calls — children resolve via the index. Existing 43 cases unchanged; 44/44.
+
 ## [0.4.1] — 2026-05-17
 
 Fix — `matchLayered` role naming disambiguates by layer number and guards against degenerate emissions. Closes Fathom row 5.1.4.1.2 (round-4 Opus pilot F4).
