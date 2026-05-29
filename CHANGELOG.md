@@ -2,6 +2,14 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.0] — 2026-05-28
+
+Adopt the per-overlay schema-version stamp (Fathom row 1.12.3). Exports `PATTERN_SCHEMA_VERSION` (= 1, V1 baseline) and declares it on the overlay's `OverlayRegistration`.
+
+### Changed
+
+- Registration now passes the mandatory `schemaVersion` field added in substrate 1.12.2. Peer dependency on `@kepello/nodegraph-core` retargeted to `^3.0.0`. No behavior change beyond the version stamp.
+
 ## [0.6.0] — 2026-05-28
 
 O(N²)→O(N) pattern-matcher element lookups. Fathom row `perf-l6-pattern-matcher-linear-element-lookup` (5.0.1.6).

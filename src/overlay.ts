@@ -10,6 +10,7 @@ import {
   PATTERN_INDEXES,
   PATTERN_METADATA_KIND,
   PATTERN_METADATA_SCHEMA,
+  PATTERN_SCHEMA_VERSION,
 } from "./schema.js";
 import {
   ROLE_EDGE_TYPE,
@@ -26,6 +27,7 @@ export class PatternOverlayImpl implements PatternOverlay {
     // Per Fathom row 5.0.42: registerOverlay returns the domain-scoped mutator.
     this.mutator = this.graph.registerOverlay({
         domain: PATTERN_DOMAIN,
+        schemaVersion: PATTERN_SCHEMA_VERSION,
         metadataSchema: PATTERN_METADATA_SCHEMA,
         indexes: PATTERN_INDEXES,
       });

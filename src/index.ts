@@ -8,6 +8,7 @@ export {
   PATTERN_INDEXES,
   PATTERN_METADATA_KIND,
   PATTERN_METADATA_SCHEMA,
+  PATTERN_SCHEMA_VERSION,
 } from "./schema.js";
 
 // Types
