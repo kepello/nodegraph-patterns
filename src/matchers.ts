@@ -103,11 +103,23 @@ function buildInstance(
   roles: PatternInstanceRole[],
   language?: string,
 ): PatternInstance {
+  // Dedupe role bindings on (role, elementId) — Fathom row 5.1.4.1.1
+  // (round-3 pilot F8: one Hexagonal instance bound the same cluster
+  // twice under domainCore). Duplicate inputs must not inflate
+  // downstream consumer counts; shared here so every matcher gets the
+  // guarantee.
+  const seen = new Set<string>();
+  const dedupedRoles = roles.filter((r) => {
+    const key = `${r.role}\u0000${r.elementId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   return {
     patternName,
     patternFamily,
     confidenceScore: Math.max(0, Math.min(1, confidence)),
-    roles,
+    roles: dedupedRoles,
     ...(language !== undefined ? { language } : {}),
   };
 }

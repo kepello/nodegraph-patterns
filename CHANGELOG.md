@@ -2,6 +2,18 @@
 
 All notable changes to `@kepello/nodegraph-patterns`. Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.0] — 2026-06-09
+
+**Role-binding dedup in `buildInstance`** (Fathom row `hexagonal-role-binding-dedup` 5.1.4.1.1 — round-3 pilot F8: a Hexagonal instance bound the same cluster twice under `domainCore`).
+
+### Fixed
+
+- The shared `buildInstance` helper dedupes role bindings on `(role, elementId)`, so EVERY matcher gets the guarantee — duplicate context entries (the pre-5.0.48.2 L3 identity collision could produce duplicate clusterIds) no longer inflate downstream consumer counts.
+
+### Tests
+
+- 1 regression (duplicate cluster entries → one `domainCore` binding). 45 pass.
+
 ## [0.7.0] — 2026-05-28
 
 Adopt the per-overlay schema-version stamp (Fathom row 1.12.3). Exports `PATTERN_SCHEMA_VERSION` (= 1, V1 baseline) and declares it on the overlay's `OverlayRegistration`.

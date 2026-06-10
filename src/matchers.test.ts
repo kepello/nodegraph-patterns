@@ -537,3 +537,21 @@ test("matchSingleton + matchFactoryMethod — per-class lookups use the index, n
     `matcher hot path must resolve children via the elementById index, not Array.find; got ${findCalls} find calls`,
   );
 });
+
+test("matchHexagonal — REGRESSION 5.1.4.1.1: duplicate cluster entries dedupe to one role binding per (role, elementId)", () => {
+  // Round-3 pilot F8: a Hexagonal instance listed the same cluster
+  // TWICE under domainCore. Duplicate clusterIds in the context (the
+  // pre-5.0.48.2 L3 identity collision could produce them) must not
+  // duplicate role bindings — downstream consumer counts inflate.
+  const ctx = buildContext({
+    clusters: [
+      { clusterId: "domain-a", name: "user-domain", memberCount: 5 },
+      { clusterId: "domain-a", name: "user-domain", memberCount: 5 },
+      { clusterId: "port1", name: "x-port", memberCount: 1 },
+    ],
+  });
+  const out = matchHexagonal(ctx);
+  assert.equal(out.length, 1);
+  const domainRoles = out[0].roles.filter((r) => r.role === "domainCore");
+  assert.equal(domainRoles.length, 1, "same (role, elementId) bound once");
+});
